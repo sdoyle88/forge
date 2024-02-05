@@ -4,6 +4,7 @@ on:
     branches: main
 jobs:
   stats:
+    if: github.repository != 'sdoyle88/forge'
     name: Statistics
     uses: emacscollective/workflows/.github/workflows/stats.yml@main
     secrets:

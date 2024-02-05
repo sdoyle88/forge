@@ -4,6 +4,7 @@ on:
     branches: main
 jobs:
   manual:
+    if: github.repository != 'sdoyle88/forge'
     name: Manual
     uses: emacscollective/workflows/.github/workflows/manual.yml@main
     secrets:

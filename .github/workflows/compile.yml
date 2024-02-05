@@ -2,5 +2,6 @@ name: Compile
 on: [push, pull_request]
 jobs:
   compile:
+    if: github.repository != 'sdoyle88/forge'
     name: Compile
     uses: emacscollective/workflows/.github/workflows/compile.yml@main
