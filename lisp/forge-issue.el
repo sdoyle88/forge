@@ -147,6 +147,10 @@ an error."
 (defun forge--ls-recent-issues (repo)
   (forge-ls-recent-topics repo 'issue))
 
+(defun forge--ls-issues (repo)
+  (forge--select-issues repo
+    [:from issue :where (= issue:repository $s2)]))
+
 (defun forge--ls-assigned-issues (repo)
   (forge--select-issues repo
     [:from issue
@@ -222,6 +226,16 @@ a prefix argument is in effect."
                       (setq default (forge--format-topic-choice default))
                       (member default choices)
                       (car default)))
+                choices))))
+
+(defun forge-read-open-issue (prompt)
+  "Read an open issue with completion using PROMPT."
+  (let* ((current (forge-current-issue))
+         (default (and current (car (forge--format-topic-choice current))))
+         (repo    (forge-get-repository (or current t)))
+         (choices (mapcar #'forge--format-topic-choice
+                          (forge-ls-issues repo 'open))))
+    (cdr (assoc (magit-completing-read prompt choices nil nil nil nil default)
                 choices))))
 
 ;;; Insert

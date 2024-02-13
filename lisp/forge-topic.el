@@ -43,9 +43,6 @@ used to order the topics by that slot.  Reasonable values
 include (number . >) and (updated . string>)."
   :package-version '(forge . "0.1.0")
   :group 'forge
-  :set (lambda (symbol value)
-         (set-default-toplevel-value symbol value)
-         (forge--zap-repository-cache 'all))
   :type '(cons (symbol   :tag "Slot")
                (function :tag "Predicate")))
 
@@ -421,70 +418,73 @@ an error.  If NOT-THINGATPT is non-nil, then don't use
 
 ;;;; List
 
-(defun forge-ls-topics (repo class &optional type select)
-  (let* ((table (oref-default class closql-table))
-         (id (oref repo id))
-         (rows (pcase-exhaustive type
-                 (`open   (forge-sql [:select $i1 :from $i2
-                                      :where (and (= repository $s3)
-                                                  (isnull closed))
-                                      :order-by [(desc number)]]
-                                     (or select '*) table id))
-                 (`closed (forge-sql [:select $i1 :from $i2
-                                      :where (and (= repository $s3)
-                                                  (notnull closed))
-                                      :order-by [(desc number)]]
-                                     (or select '*) table id))
-                 (`nil    (forge-sql [:select $i1 :from $i2
-                                      :where (= repository $s3)
-                                      :order-by [(desc number)]]
-                                     (or select '*) table id)))))
-    (if select
-        rows
-      (mapcar (lambda (row)
-                (closql--remake-instance class (forge-db) row))
-              rows))))
+(defun forge-ls-topics (repo &optional class type select)
+  (if (not class)
+      (cl-sort (nconc (forge-ls-topics repo 'forge-issue   type select)
+                      (forge-ls-topics repo 'forge-pullreq type select))
+               #'> :key (-cut oref <> number))
+    (let* ((table (oref-default class closql-table))
+           (id (oref repo id))
+           (rows (pcase-exhaustive type
+                   (`open   (forge-sql [:select $i1 :from $i2
+                                        :where (and (= repository $s3)
+                                                    (isnull closed))
+                                        :order-by [(desc number)]]
+                                       (or select '*) table id))
+                   (`closed (forge-sql [:select $i1 :from $i2
+                                        :where (and (= repository $s3)
+                                                    (notnull closed))
+                                        :order-by [(desc number)]]
+                                       (or select '*) table id))
+                   (`nil    (forge-sql [:select $i1 :from $i2
+                                        :where (= repository $s3)
+                                        :order-by [(desc number)]]
+                                       (or select '*) table id)))))
+      (if select
+          rows
+        (mapcar (lambda (row)
+                  (closql--remake-instance class (forge-db) row))
+                rows)))))
 
 (defun forge-ls-recent-topics (repo table)
-  (progn ; MAYBE resume caching this
-    (let* ((id (oref repo id))
-           (limit forge-topic-list-limit)
-           (open-limit   (if (consp limit) (car limit) limit))
-           (closed-limit (if (consp limit) (cdr limit) limit))
-           (topics (forge-sql [:select * :from $i1
-                               :where (and (= repository $s2)
-                                           (= status 'unread))]
-                              table id)))
-      (mapc (lambda (row)
-              (cl-pushnew row topics :test #'equal))
-            (if (consp limit)
-                (forge-sql [:select * :from $i1
-                            :where (and (= repository $s2)
-                                        (isnull closed))
-                            :order-by [(desc updated)]
-                            :limit $s3]
-                           table id open-limit)
+  (let* ((id (oref repo id))
+         (limit forge-topic-list-limit)
+         (open-limit   (if (consp limit) (car limit) limit))
+         (closed-limit (if (consp limit) (cdr limit) limit))
+         (topics (forge-sql [:select * :from $i1
+                             :where (and (= repository $s2)
+                                         (= status 'unread))]
+                            table id)))
+    (mapc (lambda (row)
+            (cl-pushnew row topics :test #'equal))
+          (if (consp limit)
               (forge-sql [:select * :from $i1
                           :where (and (= repository $s2)
-                                      (isnull closed))]
-                         table id)))
-      (when (> closed-limit 0)
-        (mapc (lambda (row)
-                (cl-pushnew row topics :test #'equal))
-              (forge-sql [:select * :from $i1
-                          :where (and (= repository $s2)
-                                      (notnull closed))
+                                      (isnull closed))
                           :order-by [(desc updated)]
                           :limit $s3]
-                         table id closed-limit)))
-      (cl-sort (mapcar (let ((class (if (eq table 'pullreq)
-                                        'forge-pullreq
-                                      'forge-issue)))
-                         (lambda (row)
-                           (closql--remake-instance class (forge-db) row)))
-                       topics)
-               (cdr forge-topic-list-order)
-               :key (lambda (it) (eieio-oref it (car forge-topic-list-order)))))))
+                         table id open-limit)
+            (forge-sql [:select * :from $i1
+                        :where (and (= repository $s2)
+                                    (isnull closed))]
+                       table id)))
+    (when (> closed-limit 0)
+      (mapc (lambda (row)
+              (cl-pushnew row topics :test #'equal))
+            (forge-sql [:select * :from $i1
+                        :where (and (= repository $s2)
+                                    (notnull closed))
+                        :order-by [(desc updated)]
+                        :limit $s3]
+                       table id closed-limit)))
+    (cl-sort (mapcar (let ((class (if (eq table 'pullreq)
+                                      'forge-pullreq
+                                    'forge-issue)))
+                       (lambda (row)
+                         (closql--remake-instance class (forge-db) row)))
+                     topics)
+             (cdr forge-topic-list-order)
+             :key (lambda (it) (eieio-oref it (car forge-topic-list-order))))))
 
 ;;; Read
 
@@ -499,9 +499,7 @@ allow exiting with a number that doesn't match any candidate."
   (let* ((default (forge-current-topic))
          (repo    (forge-get-repository (or default t)))
          (choices (mapcar #'forge--format-topic-choice
-                          (cl-sort (nconc (forge-ls-pullreqs repo type)
-                                          (forge-ls-issues   repo type))
-                                   #'> :key (-cut oref <> number))))
+                          (forge-ls-topics repo nil type)))
          (choice  (magit-completing-read
                    prompt choices nil nil nil nil
                    (and default
