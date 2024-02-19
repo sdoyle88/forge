@@ -141,31 +141,41 @@ an error."
 
 ;;;; List
 
-(defun forge-ls-issues (repo &optional type select)
-  (forge-ls-topics repo 'forge-issue type select))
-
 (defun forge--ls-recent-issues (repo)
   (forge-ls-recent-topics repo 'issue))
 
 (defun forge--ls-issues (repo)
   (forge--select-issues repo
-    [:from issue :where (= issue:repository $s2)]))
+    [:from issue :where (= issue:repository $s1)]))
+
+(defun forge--ls-open-issues (repo)
+  (forge--select-issues repo
+    [:from issue
+     :where (and (= issue:repository $s1)
+                 (= issue:state 'open))]))
+
+(defun forge--ls-active-issues (repo)
+  (forge--select-issues repo
+    [:from issue
+     :where (and (= issue:repository $s1)
+                 (or (= issue:state 'open)
+                     (in issue:status [pending unread])))]))
 
 (defun forge--ls-assigned-issues (repo)
   (forge--select-issues repo
     [:from issue
      :join issue_assignee :on (= issue_assignee:issue issue:id)
      :join assignee       :on (= issue_assignee:id    assignee:id)
-     :where (and (= issue:repository $s2)
-                 (= assignee:login   $s3)
+     :where (and (= issue:repository $s1)
+                 (= assignee:login   $s2)
                  (isnull issue:closed))]
     (ghub--username repo)))
 
 (defun forge--ls-authored-issues (repo)
   (forge--select-issues repo
     [:from [issue]
-     :where (and (= issue:repository $s2)
-                 (= issue:author     $s3)
+     :where (and (= issue:repository $s1)
+                 (= issue:author     $s2)
                  (isnull issue:closed))]
     (ghub--username repo)))
 
@@ -174,8 +184,8 @@ an error."
     [:from issue
      :join issue_label :on (= issue_label:issue issue:id)
      :join label       :on (= issue_label:id    label:id)
-     :where (and (= issue:repository $s2)
-                 (= label:name       $s3)
+     :where (and (= issue:repository $s1)
+                 (= label:name       $s2)
                  (isnull issue:closed))]
     label))
 
@@ -183,8 +193,8 @@ an error."
   (forge--select-issues nil
     [:from [issue repository]
      :where (and (= issue:repository repository:id)
-                 (in repository:owner $v2)
-                 (not (in repository:name $v3))
+                 (in repository:owner $v1)
+                 (not (in repository:name $v2))
                  (isnull issue:closed))
      :order-by [(asc repository:owner)
                 (asc repository:name)
@@ -198,35 +208,32 @@ an error."
     (mapcar (lambda (row)
               (closql--remake-instance 'forge-issue db row))
             (apply #'forge-sql
-                   (vconcat [:select $i1]
+                   (vconcat [:select *]
                             query
                             (and (not (cl-find :order-by query))
                                  [:order-by [(desc updated)]]))
-                   (vconcat (closql--table-columns db 'issue t))
                    (if repo
                        (cons (oref repo id) args)
                      args)))))
 
 ;;; Read
 
-(defun forge-read-issue (prompt &optional type)
-  "Read an issue with completion using PROMPT.
-TYPE can be `open', `closed', or nil to select from all issues.
-TYPE can also be t to select from open issues, or all issues if
-a prefix argument is in effect."
-  (when (eq type t)
-    (setq type (if current-prefix-arg nil 'open)))
-  (let* ((default (forge-current-issue))
-         (repo    (forge-get-repository (or default t)))
-         (choices (mapcar #'forge--format-topic-choice
-                          (forge-ls-issues repo type))))
-    (cdr (assoc (magit-completing-read
-                 prompt choices nil nil nil nil
-                 (and default
-                      (setq default (forge--format-topic-choice default))
-                      (member default choices)
-                      (car default)))
-                choices))))
+(defun forge-read-issue (prompt)
+  "Read an active issue with completion using PROMPT.
+
+Open, unread and pending issues are considered active.
+Default to the current issue even if it isn't active.
+
+\\<forge-read-topic-minibuffer-map>While completion is in \
+progress, \\[forge-read-topic-lift-limit] lifts the limit, extending
+the completion candidates to include all issues.
+
+If `forge-limit-topic-choices' is nil, then all candidates
+can be selected from the start."
+  (forge--read-topic prompt
+                     #'forge-current-issue
+                     #'forge--ls-active-issues
+                     #'forge--ls-issues))
 
 (defun forge-read-open-issue (prompt)
   "Read an open issue with completion using PROMPT."
@@ -234,7 +241,7 @@ a prefix argument is in effect."
          (default (and current (car (forge--format-topic-choice current))))
          (repo    (forge-get-repository (or current t)))
          (choices (mapcar #'forge--format-topic-choice
-                          (forge-ls-issues repo 'open))))
+                          (forge--ls-open-issues repo))))
     (cdr (assoc (magit-completing-read prompt choices nil nil nil nil default)
                 choices))))
 
