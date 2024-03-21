@@ -47,11 +47,10 @@
 ;;; Pull
 ;;;; Repository
 
-(cl-defmethod forge--pull ((repo forge-gitlab-repository) until
-                           &optional callback)
-  (let ((cb (let ((buf (and (derived-mode-p 'magit-mode)
-                            (current-buffer)))
-                  (dir default-directory)
+(cl-defmethod forge--pull ((repo forge-gitlab-repository)
+                           &optional callback since)
+  (cl-assert (not (and since (forge-get-repository repo :tracked?))))
+  (let ((cb (let ((buf (current-buffer))
                   (val nil))
               (lambda (cb &optional v)
                 (when v (if val (push v val) (setq val v)))
@@ -67,10 +66,10 @@
                     (forge--fetch-labels repo cb))
                    ((and .issues_enabled
                          (not (assq 'issues val)))
-                    (forge--fetch-issues repo cb until))
+                    (forge--fetch-issues repo cb since))
                    ((and .merge_requests_enabled
                          (not (assq 'pullreqs val)))
-                    (forge--fetch-pullreqs repo cb until))
+                    (forge--fetch-pullreqs repo cb since))
                    (t
                     (forge--msg repo t t   "Pulling REPO")
                     (forge--msg repo t nil "Storing REPO")
@@ -80,12 +79,12 @@
                       (forge--update-labels     repo .labels)
                       (dolist (v .issues)   (forge--update-issue repo v))
                       (dolist (v .pullreqs) (forge--update-pullreq repo v))
-                      (oset repo sparse-p nil))
+                      (oset repo condition :tracked))
                     (forge--msg repo t t "Storing REPO")
                     (cond
                      ((oref repo selective-p))
                      (callback (funcall callback))
-                     ((forge--git-fetch buf dir repo))))))))))
+                     ((forge--maybe-git-fetch repo buf))))))))))
     (funcall cb cb)))
 
 (cl-defmethod forge--fetch-repository ((repo forge-gitlab-repository) callback)
@@ -119,9 +118,15 @@
     (oset repo stars          .star_count)
     (oset repo watchers       .star_count)))
 
+;;;; Topics
+
+(cl-defmethod forge--pull-topic ((repo forge-gitlab-repository) _topic
+                                 &key callback _errorback)
+  (forge--pull repo callback)) ; TODO Pull only the one topic.
+
 ;;;; Issues
 
-(cl-defmethod forge--fetch-issues ((repo forge-gitlab-repository) callback until)
+(cl-defmethod forge--fetch-issues ((repo forge-gitlab-repository) callback since)
   (let ((cb (let (val cur cnt pos)
               (lambda (cb &optional v)
                 (cond
@@ -146,7 +151,7 @@
     (forge--glab-get repo "/projects/:project/issues"
       `((per_page . 100)
         (order_by . "updated_at")
-        ,@(and-let* ((after (forge--topics-until repo until 'issue)))
+        ,@(and-let* ((after (or since (oref repo issues-until))))
             `((updated_after . ,after))))
       :unpaginate t
       :callback (lambda (value _headers _status _req)
@@ -206,13 +211,13 @@
                     :updated .updated_at
                     :body    (forge--sanitize-string .body))))
               (closql-insert (forge-db) post t))))
-        (when (string> .updated_at (forge--topics-until repo nil 'issue))
+        (when (string> .updated_at (oref repo issues-until))
           (oset repo issues-until .updated_at))
         issue))))
 
 ;;;; Pullreqs
 
-(cl-defmethod forge--fetch-pullreqs ((repo forge-gitlab-repository) callback until)
+(cl-defmethod forge--fetch-pullreqs ((repo forge-gitlab-repository) callback since)
   (let ((cb (let (val cur cnt pos)
               (lambda (cb &optional v)
                 (cond
@@ -241,7 +246,7 @@
     (forge--glab-get repo "/projects/:project/merge_requests"
       `((per_page . 100)
         (order_by . "updated_at")
-        ,@(and-let* ((after (forge--topics-until repo until 'pullreq)))
+        ,@(and-let* ((after (or since (oref repo pullreqs-until))))
             `((updated_after . ,after))))
       :unpaginate t
       :callback (lambda (value _headers _status _req)
@@ -345,7 +350,7 @@
                     :updated .updated_at
                     :body    (forge--sanitize-string .body))))
               (closql-insert (forge-db) post t))))
-        (when (string> .updated_at (forge--topics-until repo nil 'pullreq))
+        (when (string> .updated_at (oref repo pullreqs-until))
           (oset repo pullreqs-until .updated_at))
         pullreq))))
 
@@ -508,7 +513,7 @@
       (forge-pullreq "/projects/:project/merge_requests/:number")
       (forge-issue   "/projects/:project/issues/:number"))
     `((,field . ,value))
-    :callback (forge--set-field-callback)))
+    :callback (forge--set-field-callback topic)))
 
 (cl-defmethod forge--set-topic-title
   ((repo forge-gitlab-repository) topic title)

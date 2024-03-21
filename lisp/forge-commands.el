@@ -108,7 +108,7 @@ Takes the pull-request as only argument and must return a directory."
 ;;; Pull
 
 ;;;###autoload
-(defun forge-pull (&optional repo until interactive callback)
+(defun forge-pull (&optional repo since interactive callback)
   "Pull topics from the forge repository.
 
 With a prefix argument and if the repository has not been fetched
@@ -117,16 +117,18 @@ those that have been updated since then.
 
 If pulling is too slow, then also consider setting the Git variable
 `forge.omitExpensive' to `true'.
-\n(fn &optional REPO UNTIL)"
+\n(fn &optional REPO SINCE)"
   (interactive
    (list nil
          (and current-prefix-arg
               (let ((repo (forge-current-repository)))
-                (or (not repo) (oref repo sparse-p)))
+                (or (not repo)
+                    (not (forge-get-repository repo :tracked?))))
               (forge-read-date "Limit pulling to topics updates since: "))
          t))
   (let (create)
-    (when (or (not repo) (oref repo sparse-p))
+    (when (or (not repo)
+              (not (forge-get-repository repo :tracked?)))
       (setq repo (forge-current-repository))
       (unless repo
         (setq repo (forge-get-repository :insert!))
@@ -151,9 +153,7 @@ If pulling is too slow, then also consider setting the Git variable
                           (format "remote.%s.fetch" remote)
                           refspec)))
       (forge--msg repo t nil "Pulling REPO")
-      (when-let ((worktree (oref repo worktree)))
-        (let ((default-directory worktree))
-          (forge--pull repo until callback))))))
+      (forge--pull repo callback since))))
 
 (defun forge-read-date (prompt)
   (cl-block nil
@@ -167,19 +167,24 @@ If pulling is too slow, then also consider setting the Git variable
       (message "Please enter a date in the format YYYY-MM-DD.")
       (sit-for 1))))
 
-(cl-defmethod forge--pull ((repo forge-noapi-repository) _until) ; NOOP
+(cl-defmethod forge--pull ((repo forge-noapi-repository) &rest _)
   (forge--msg repo t t "Pulling from REPO is not supported"))
 
-(cl-defmethod forge--pull ((repo forge-unusedapi-repository) _until)
-  (oset repo sparse-p nil)
+(cl-defmethod forge--pull ((repo forge-unusedapi-repository) &rest _)
   (magit-git-fetch (oref repo remote) (magit-fetch-arguments)))
 
-(defun forge--git-fetch (buf dir repo)
-  (if (buffer-live-p buf)
-      (with-current-buffer buf
+(defun forge--maybe-git-fetch (repo &optional buffer)
+  (if (and (buffer-live-p buffer)
+           (with-current-buffer buffer
+             (and (derived-mode-p 'magit-mode)
+                  (forge-repository-equal (forge-get-repository :stub?) repo))))
+      (with-current-buffer buffer
         (magit-git-fetch (oref repo remote) (magit-fetch-arguments)))
-    (let ((default-directory dir))
-      (magit-git-fetch (oref repo remote) (magit-fetch-arguments)))))
+    (when-let ((worktree (oref repo worktree)))
+      (when (file-directory-p worktree)
+        (let ((default-directory worktree)
+              (magit-inhibit-refresh t))
+          (magit-git-fetch (oref repo remote) (magit-fetch-arguments)))))))
 
 ;;;###autoload
 (defun forge-pull-notifications ()
@@ -201,9 +206,7 @@ If pulling is too slow, then also consider setting the Git variable
    (list (read-number "Pull topic: "
                       (and-let* ((topic (forge-current-topic)))
                         (oref topic number)))))
-  (let ((repo (forge-get-repository :tracked)))
-    (forge--pull-topic
-     repo (forge-issue :repository (oref repo id) :number number))))
+  (forge--pull-topic (forge-get-repository :tracked) number))
 
 ;;;###autoload (autoload 'forge-pull-this-topic "forge-commands" nil t)
 (transient-define-suffix forge-pull-this-topic ()
@@ -1044,13 +1047,12 @@ pull individual topics when the user invokes `forge-pull-topic'."
   (if (forge-get-repository url nil :tracked?)
       (user-error "%s is already tracked in Forge database" url)
     (let ((repo (forge-get-repository url nil :insert!)))
-      (oset repo sparse-p nil)
       (magit-read-char-case "Pull " nil
         (?a "[a]ll topics"
             (forge-pull repo))
         (?i "[i]ndividual topics (useful for casual contributors)"
             (oset repo selective-p t)
-            (forge--pull repo nil))))))
+            (forge--pull repo))))))
 
 ;;;###autoload
 (defun forge-add-user-repositories (host user)
