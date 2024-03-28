@@ -916,7 +916,7 @@ This mode itself is never used directly."
          (current-repo (forge-get-repository :known?))
          (default-directory (if (forge-repository-equal current-repo repo)
                                 default-directory
-                              (or (oref repo worktree)
+                              (or (forge-get-worktree repo)
                                   default-directory))))
     (magit-setup-buffer-internal
      (if (forge-issue-p topic) #'forge-issue-mode #'forge-pullreq-mode)
@@ -1351,7 +1351,7 @@ Return a value between 0 and 1."
 (defun forge--markdown-translate-filename-function (file)
   (if (string-match-p "\\`https?://" file)
       file
-    (let ((host (oref (forge-get-repository :tracked) githost)))
+    (let ((host (oref (forge-get-repository :tracked) forge))) ;aka webhost
       (concat (if (member host ghub-insecure-hosts) "http://" "https://")
               host
               (and (not (string-prefix-p "/" file)) "/")

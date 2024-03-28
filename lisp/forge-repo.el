@@ -271,6 +271,17 @@ See `forge-alist' for valid Git hosts."
 (defun forge--get-repository:tracked? ()
   (forge-get-repository :tracked?))
 
+(defun forge-get-worktree (repo)
+  "Validate and return the worktree recorded for REPO.
+If no worktree is recorded, return nil.  If a worktree is recorded but
+that doesn't exist anymore, then discard the recorded value and return
+nil."
+  (and-let* ((worktree (oref repo worktree)))
+    (if (file-directory-p worktree)
+        worktree
+      (oset repo worktree nil)
+      nil)))
+
 ;;;; Current
 
 (defun forge-current-repository ()
@@ -410,14 +421,17 @@ forges and hosts."
       (user-error "Cannot determine apihost for %S" host)))
 
 (cl-defmethod forge--format ((repo forge-repository) format-or-slot &optional spec)
-  (format-spec
-   (if (symbolp format-or-slot)
-       (eieio-oref repo format-or-slot)
-     format-or-slot)
-   (pcase-let* (((eieio forge owner name) repo)
-                (path (if owner (concat owner "/" name) name)))
+  (pcase-let* (((eieio (forge webhost) owner name) repo)
+               (path (if owner (concat owner "/" name) name)))
+    (format-spec
+     (let ((format (if (symbolp format-or-slot)
+                       (eieio-oref repo format-or-slot)
+                     format-or-slot)))
+       (if (member webhost ghub-insecure-hosts)
+           (replace-regexp-in-string "\\`https://" "http://" format t t)
+         format))
      `(,@spec
-       (?h . ,forge) ;aka webhost
+       (?h . ,webhost)
        (?o . ,owner)
        (?n . ,name)
        (?p . ,path)
@@ -468,7 +482,7 @@ forges and hosts."
 (cl-defmethod ghub--username ((repo forge-repository))
   (let ((default-directory default-directory))
     (unless (forge-repository-equal (forge-get-repository :stub?) repo)
-      (when-let ((worktree (oref repo worktree)))
+      (when-let ((worktree (forge-get-worktree repo)))
         (setq default-directory worktree)))
     (cl-call-next-method (oref repo apihost)
                          (forge--ghub-type-symbol (eieio-object-class repo)))))
@@ -476,9 +490,11 @@ forges and hosts."
 (defun forge--ghub-type-symbol (class)
   (pcase-exhaustive class
     ;; This package does not define a `forge-gitlab-http-repository'
-    ;; class, but we suggest at #9 that users define such a class if
-    ;; they must connect to a Gitlab instance that uses http instead
-    ;; of https.
+    ;; class, but we used to suggest at #9 that users define such a class
+    ;; if they must connect to a Gitlab instance that uses http instead
+    ;; of https.  Doing that isn't necessary anymore, but we have to keep
+    ;; supporting it here.  It is now sufficient to add an entry to
+    ;; `ghub-insecure-hosts'.
     ((or 'forge-gitlab-repository 'forge-gitlab-http-repository) 'gitlab)
     ('forge-github-repository    'github)
     ('forge-gitea-repository     'gitea)
