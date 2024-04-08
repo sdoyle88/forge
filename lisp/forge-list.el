@@ -417,11 +417,10 @@ Must be set before `forge-list' is loaded.")
       (let ((repo (forge-current-repository)))
         (cond
          ((or (not repo)
-              (forge-get-repository repo :tracked?)))
-         ((yes-or-no-p
-           (format "Add %s to database, so its topics can be listed?"
-                   (oref repo slug)))
-          (forge--pull repo #'ignore)
+              (forge-get-repository repo nil :tracked?)))
+         ((y-or-n-p (format "Add %s to database, so its topics can be listed?"
+                            (oref repo slug)))
+          (forge-add-repository (forge-get-url repo))
           (throw 'add-instead t))
          ((setq repo nil)))
         (if-let ((buffer (forge-topic-get-buffer repo)))
@@ -456,10 +455,9 @@ Must be set before `forge-list' is loaded.")
 (defun forge-menu-quit-list ()
   "From a transient menu, quit the list buffer and the menu.
 
-If quitting the list buffer causes another topic, repository
-or notification list buffer to becomes current in the selected
-window, then display the respective menu, otherwise display no
-menu."
+If quitting the list buffer causes another topic, repository or
+notification list buffer to become current in the selected window,
+then display the respective menu, otherwise display no menu."
   (interactive)
   (when (derived-mode-p 'forge-topic-mode
                         'forge-topic-list-mode

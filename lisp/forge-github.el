@@ -54,7 +54,7 @@
 
 (cl-defmethod forge--pull ((repo forge-github-repository)
                            &optional callback since)
-  (cl-assert (not (and since (forge-get-repository repo :tracked?))))
+  (cl-assert (not (and since (forge-get-repository repo nil :tracked?))))
   (setq forge--mode-line-buffer (current-buffer))
   (forge--msg repo t nil "Pulling REPO")
   (let ((buf (current-buffer)))
@@ -280,7 +280,6 @@
                                     (forge--object-id (oref repo id)
                                                       .milestone.id)))
         (oset issue body       (forge--sanitize-string .body))
-        .databaseId ; Silence Emacs 25 byte-compiler.
         (dolist (c .comments)
           (let-alist c
             (closql-insert
@@ -348,7 +347,6 @@
                                         (forge--object-id (oref repo id)
                                                           .milestone.id)))
         (oset pullreq body         (forge--sanitize-string .body))
-        .databaseId ; Silence Emacs 25 byte-compiler.
         (dolist (p .comments)
           (let-alist p
             (closql-insert
@@ -528,14 +526,15 @@
    nil :auth 'forge :host host))
 
 (defun forge--batch-add-callback (host owner names)
-  (let ((repos (cl-mapcan (lambda (name)
-                            (let ((repo (forge-get-repository
-                                         (list host owner name)
-                                         nil :insert!)))
-                              (and (not (forge-get-repository repo :tracked?))
-                                   (list repo))))
-                          names))
-        cb)
+  (let ((repos (cl-mapcan
+                (lambda (name)
+                  (let ((repo (forge-get-repository
+                               (list host owner name)
+                               nil :insert!)))
+                    (and (not (forge-get-repository repo nil :tracked?))
+                         (list repo))))
+                names))
+        (cb nil))
     (setq cb (lambda ()
                (when-let ((repo (pop repos)))
                  (forge--pull repo cb))))
