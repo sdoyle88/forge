@@ -55,26 +55,25 @@ Takes the pull-request as only argument and must return a directory."
 ;;;###autoload (autoload 'forge-dispatch "forge-commands" nil t)
 (transient-define-prefix forge-dispatch ()
   "Dispatch a forge command."
+  :transient-non-suffix #'transient--do-call
+  :refresh-suffixes t
+  :column-widths forge--topic-menus-column-widths
   [:if forge--get-repository:tracked?
+   forge--topic-menus-group
    ["Create"
     ("c i" "issue"          forge-create-issue)
     ("c p" "pull-request"   forge-create-pullreq)
     ("c u" "pr from issue"  forge-create-pullreq-from-issue)
-    ("c f" "fork or remote" forge-fork)]]
-  [:if forge--get-repository:tracked?
-   ["List"
-    ("l t" "topics"         forge-topics-menu        :transient replace)
-    ("l n" "notifications"  forge-notifications-menu :transient replace)
-    ("l r" "repositories"   forge-repositories-menu  :transient replace)]
+    ("c f" "fork or remote" forge-fork)]
    ["Fetch"
     ("f f" "all topics"     forge-pull)
     ("f t" "one topic"      forge-pull-topic)
     ("f n" "notifications"  forge-pull-notifications)]
-   ["Misc"
-    :if forge--get-repository:tracked?
-    ("/C" "configure"       forge-configure)
-    ("/M" "merge w/api"     forge-merge :level 7)]]
+   ["Actions"
+    ("/a" "add another repo"forge-add-repository)
+    ("/M" "merge with api"  forge-merge :level 7)]]
   [:if forge--get-repository:tracked?
+   forge--lists-group
    ["Visit"
     ("v t" "topic"          forge-visit-topic)
     ("v i" "issue"          forge-visit-issue)
@@ -85,27 +84,50 @@ Takes the pull-request as only argument and must return a directory."
     ("b p" "pull-request"   forge-browse-pullreq)
     ("b r" "remote"         forge-browse-remote)
     ("b I" "issues"         forge-browse-issues)
-    ("b P" "pull-requests"  forge-browse-pullreqs)]]
-  [[:description (lambda ()
-                   (if (magit-gitdir)
+    ("b P" "pull-requests"  forge-browse-pullreqs)
+    ""]
+   ["Display"
+    ("-T" forge-toggle-display-in-status-buffer
+     :inapt-if-not forge--buffer-with-topics-sections-p)
+    ("-H" forge-toggle-topic-legend)]]
+  [:if forge--get-repository:tracked?
+   forge--topic-legend-group]
+  [:if-not forge--get-repository:tracked?
+   forge--topic-menus-group
+   [:description (lambda ()
+                   (if (or (magit-gitdir)
+                           (forge-repository-at-point))
                        "Forge doesn't know about this Git repository yet"
                      "Not inside a Git repository"))
-    :if-not forge--get-repository:tracked?
-    ("a  " "add repository to database" forge-add-repository)
+    ("/ a" "add repository to database" forge-add-repository)
     ("f n" "fetch notifications"        forge-pull-notifications)
-    ("l n" "list notifications"         forge-list-notifications)]])
+    ("l n" "list notifications"         forge-list-notifications)]]
+  [:if-not forge--get-repository:tracked?
+   forge--lists-group])
+
+(transient-augment-suffix forge-dispatch
+  :transient #'transient--do-replace
+  :inapt-if (lambda () (eq (oref transient--prefix command) 'forge-dispatch))
+  :inapt-face 'forge-suffix-active)
 
 ;;;###autoload (autoload 'forge-configure "forge-commands" nil t)
 (transient-define-prefix forge-configure ()
   "Configure current repository and global settings."
-  [["Configure"
+  :transient-non-suffix #'transient--do-call
+  :refresh-suffixes t
+  :column-widths forge--topic-menus-column-widths
+  [forge--topic-menus-group
+   ["Configure"
     :if forge--get-repository:tracked?
     ("a  " "add another repository to database" forge-add-some-repository)
     ("R  " forge-add-pullreq-refspec)
     ("s r" forge-forge.remote)
-    ("s l" forge-forge.graphqlItemLimit)
-    ("s s" forge-toggle-display-in-status-buffer)
-    ("s c" forge-toggle-closed-visibility)]])
+    ("s l" forge-forge.graphqlItemLimit)]])
+
+(transient-augment-suffix forge-configure
+  :transient #'transient--do-replace
+  :inapt-if (lambda () (eq (oref transient--prefix command) 'forge-configure))
+  :inapt-face 'forge-suffix-active)
 
 ;;; Pull
 
@@ -310,7 +332,7 @@ argument also offer closed pull-requests."
       (forge-current-topic)
       (and magit-buffer-revision
            (forge-get-url :commit magit-buffer-revision))
-      (forge-current-repository)))
+      (forge-get-repository :stub?)))
 
 ;;;; Urls
 
@@ -369,32 +391,46 @@ argument also offer closed pull-requests."
 ;;;###autoload
 (defun forge-visit-topic (topic)
   "Read a TOPIC and visit it.
-By default only offer open topics for completion;
-with a prefix argument also closed topics."
+By default only offer active topics for completion.  With a prefix
+argument offer all topics.  While completion is in progress, \
+\\<forge-read-topic-minibuffer-map>\\[forge-read-topic-lift-limit] lifts
+the limitation to active topics."
   (interactive (list (forge-read-topic "View topic")))
   (forge-topic-setup-buffer (forge-get-topic topic)))
 
 ;;;###autoload
 (defun forge-visit-issue (issue)
   "Read an ISSUE and visit it.
-By default only offer open topics for completion;
-with a prefix argument also closed topics."
+By default only offer active issues for completion.  With a prefix
+argument offer all topics.  While completion is in progress, \
+\\<forge-read-topic-minibuffer-map>\\[forge-read-topic-lift-limit] lifts
+the limitation to active issues."
   (interactive (list (forge-read-issue "View issue")))
   (forge-topic-setup-buffer (forge-get-issue issue)))
 
 ;;;###autoload
 (defun forge-visit-pullreq (pull-request)
   "Read a PULL-REQUEST and visit it.
-By default only offer open topics for completion;
-with a prefix argument also closed topics."
+By default only offer active pull-requests for completion.  With a
+prefix argument offer all topics.  While completion is in progress,
+\\<forge-read-topic-minibuffer-map>\\[forge-read-topic-lift-limit] \
+lifts the limitation to active pull-requests."
   (interactive (list (forge-read-pullreq "View pull-request")))
   (forge-topic-setup-buffer (forge-get-pullreq pull-request)))
 
 ;;;###autoload
-(defun forge-visit-this-topic ()
-  "Visit the topic at point."
-  (interactive)
-  (forge-topic-setup-buffer (forge-topic-at-point)))
+(defun forge-visit-this-topic (&optional menu)
+  "Visit the topic at point.
+With prefix argument MENU, also show the topic menu."
+  (interactive (list current-prefix-arg))
+  (forge-topic-setup-buffer (forge-topic-at-point))
+  (cond
+   ((eq transient-current-command 'forge-topic-menu)
+    (setq forge--quit-keep-topic-menu t))
+   ((or menu
+        (memq transient-current-command
+              '(forge-topics-menu forge-notifications-menu)))
+    (transient-setup 'forge-topic-menu))))
 
 ;;;###autoload
 (defun forge-visit-this-repository ()
@@ -403,8 +439,9 @@ with a prefix argument also closed topics."
   (let* ((repo (forge-repository-at-point))
          (worktree (forge-get-worktree repo)))
     (cond
-     ((eq transient-current-command 'forge-repositories-menu)
-      (if-let ((buffer (forge-topic-get-buffer repo)))
+     ((and (eq transient-current-command 'forge-repositories-menu)
+           (forge-get-repository repo nil :tracked?))
+      (if-let ((buffer (forge-topics-buffer-name repo)))
           (switch-to-buffer buffer)
         (forge-list-topics repo))
       (transient-setup 'forge-topics-menu))
@@ -558,17 +595,21 @@ point is currently on."
                   (propertize "none" 'face 'magit-dimmed)))
       "note"))
   (interactive)
-  (let* ((topic (forge-current-topic t))
-         (buf (forge--prepare-post-buffer
-               (forge--format topic "%i;note")
-               (forge--format topic "New note on #%i of %p"))))
-    (with-current-buffer buf
-      (setq forge--buffer-post-object topic)
-      (setq forge--submit-post-function #'forge--save-note)
-      (erase-buffer)
-      (when-let ((note (oref topic note)))
-        (save-excursion (insert note ?\n))))
-    (forge--display-post-buffer buf)))
+  (if-let* ((topic (forge-current-topic t))
+            (repo (forge-get-repository topic))
+            (default-directory (forge-get-worktree repo))
+            (buf (forge--prepare-post-buffer
+                  (forge--format topic "%i;note")
+                  (forge--format topic "New note on #%i of %p"))))
+      (progn
+        (with-current-buffer buf
+          (setq forge--buffer-post-object topic)
+          (setq forge--submit-post-function #'forge--save-note)
+          (erase-buffer)
+          (when-let ((note (oref topic note)))
+            (save-excursion (insert note ?\n))))
+        (forge--display-post-buffer buf))
+    (message "Cannot determine topic or worktree")))
 
 ;;; Delete
 
@@ -912,37 +953,22 @@ the upstream remotes of local branches accordingly."
 
 (transient-define-suffix forge-toggle-display-in-status-buffer ()
   "Toggle whether to display topics in the current status buffer."
-  :inapt-if-not (lambda ()
-                  (and (eq major-mode 'magit-status-mode)
-                       (forge-get-repository :known?)))
+  :if-mode 'magit-status-mode
+  :inapt-if-not #'forge--buffer-with-topics-sections-p
   :description (lambda ()
-                 (if forge-display-in-status-buffer
-                     "hide all topics"
+                 (if (and forge--buffer-topics-spec
+                          (oref forge--buffer-topics-spec type))
+                     "hide topics"
                    "display topics"))
-  :transient t
   (interactive)
-  (setq forge-display-in-status-buffer (not forge-display-in-status-buffer))
+  (oset forge--buffer-topics-spec type
+        (if (oref forge--buffer-topics-spec type) nil 'topic))
   (forge-refresh-buffer))
 
-(transient-define-suffix forge-toggle-closed-visibility ()
-  "Toggle whether to display recently closed topics.
-This only affect the current status buffer."
-  :inapt-if-not (lambda ()
-                  (and forge-display-in-status-buffer
-                       (eq major-mode 'magit-status-mode)
-                       (forge-get-repository :known?)))
-  :description (lambda ()
-                 (if (or (atom forge-topic-list-limit)
-                         (> (cdr forge-topic-list-limit) 0))
-                     "hide closed topics"
-                   "display recently closed topics"))
-  :transient t
-  (interactive)
-  (make-local-variable 'forge-topic-list-limit)
-  (if (atom forge-topic-list-limit)
-      (setq forge-topic-list-limit (cons forge-topic-list-limit 5))
-    (setcdr forge-topic-list-limit (* -1 (cdr forge-topic-list-limit))))
-  (forge-refresh-buffer))
+(defun forge--buffer-with-topics-sections-p ()
+  (and forge--buffer-topics-spec
+       (not (eq major-mode 'forge-topics-mode))
+       (forge-get-repository :tracked?)))
 
 ;;;###autoload (autoload 'forge-add-pullreq-refspec "forge-commands" nil t)
 (transient-define-suffix forge-add-pullreq-refspec ()
@@ -1024,6 +1050,7 @@ upstream remote.  Also fetch from REMOTE."
          ((magit-git-config-p "forge.autoPull" t))
          (remote  (oref repo remote))
          (refspec (oref repo pullreq-refspec))
+         (default-directory (forge-get-worktree repo))
          ((and (not (member refspec (magit-get-all "remote" remote "fetch")))
                (or (eq forge-add-pullreq-refspec t)
                    (and (eq forge-add-pullreq-refspec 'ask)
@@ -1035,7 +1062,9 @@ upstream remote.  Also fetch from REMOTE."
     (when (eq limit :selective)
       (oset repo selective-p t)
       (setq limit nil))
-    (forge--pull repo nil limit))))
+    (forge--pull repo
+                 (and (not (forge-get-worktree repo)) #'ignore)
+                 limit))))
 
 (defun forge-add-some-repository (url)
   "Read a repository and add it to the database."
