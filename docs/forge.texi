@@ -44,8 +44,8 @@ General Public License for more details.
 @node Top
 @top Forge User and Developer Manual
 
-Forge allows you to work with Git forges, such as Github and Gitlab,
-from the comfort of Magit and the rest of Emacs.
+Forge allows you to work with Git forges, currently Github and Gitlab,
+from the comfort of Magit and Emacs.
 
 @noindent
 This manual is for Forge version 0.3.2.50-git.
@@ -55,9 +55,9 @@ This manual is for Forge version 0.3.2.50-git.
 
 @menu
 * Introduction::
-* Supported Forges and Hosts::
+* Initial Setup::
 * Getting Started::
-* Usage::
+* Supported Forges and Hosts::
 * FAQ::
 * Keystroke Index::
 * Function and Command Index::
@@ -66,21 +66,14 @@ This manual is for Forge version 0.3.2.50-git.
 @detailmenu
 --- The Detailed Node Listing ---
 
-Supported Forges and Hosts
-
-* Supported Forges::
-* Partially Supported Forges::
-* Supported Semi-Forges::
-
-Getting Started
+Initial Setup
 
 * Loading Forge::
 * Token Creation::
 * Initial Pull::
 * Repository Detection::
-* Caveats::
 
-Usage
+Getting Started
 
 * Pulling::
 * Branching::
@@ -95,6 +88,12 @@ Working with Topics
 * Editing Topics and Posts::
 
 
+Supported Forges and Hosts
+
+* Supported Forges::
+* Partially Supported Forges::
+* Supported Semi-Forges::
+
 FAQ
 
 * Is it possible to create a single pull-request without pulling everything?::
@@ -106,272 +105,22 @@ FAQ
 @node Introduction
 @chapter Introduction
 
-Forge allows you to work with Git forges, such as Github and Gitlab,
-from the comfort of Magit and the rest of Emacs.
+Forge allows you to work with Git forges, currently Github and Gitlab,
+from the comfort of Magit and Emacs.
 
 Forge fetches issues, pull-requests and other data using the forge's
-API and stores that in a local database.  Additionally it fetches the
-pull-request references using Git.  Forge implements various features
-that use this data but the database and pull-request refs can also be
-used by third-party packages.
+API and stores the retrieved information in a local database.
+Additionally it fetches pull-request references using Git.
 
-@node Supported Forges and Hosts
-@chapter Supported Forges and Hosts
+@node Initial Setup
+@chapter Initial Setup
 
-Currently Forge supports two forges and three more forges partially.
-Additionally it supports four semi-forges.  Support for more forges
-and semi-forges can and will be added.
-
-Both forges and semi-forges provide web interfaces for Git
-repositories.  Forges additionally support pull-requests and issues
-and make those and other information available using an API@.
-
-When a forge is only partially supported, then that means that only
-the functionality that does not require the API is implemented, or
-in other words, that the forge is only supported as a semi-forge.
-
-A host is a particular instance of a forge.  For example the hosts
-@uref{https://gitlab.com} and @uref{https://salsa.debian.org} are both instances of
-the Gitlab forge.  Forge supports some well known hosts out of the box
-and additional hosts can easily be supported by adding entries to the
-option @code{forge-alist} (see @ref{Repository Detection}).
-
-For more details about the caveats mentioned below (and some others)
-also see @ref{Getting Started}.
-
-@menu
-* Supported Forges::
-* Partially Supported Forges::
-* Supported Semi-Forges::
-@end menu
-
-@node Supported Forges
-@section Supported Forges
-
-@anchor{Github}
-@subheading Github
-
-Forge's support for Github can be considered the "reference
-  implementation".  Support for other forges can lag behind a bit.
-
-@anchor{Github Caveats}
-@subsubheading Github Caveats
-
-@itemize
-@item
-Forge uses the Github GraphQL API when possible but has to fall
-back to use the REST API in many cases because the former is still
-rather incomplete.
-
-@item
-The Github GraphQL API has a hard-coded timeout on queries. The only solution
-is to reduce the number of entities we query at once, which can be done by
-adjusting either the @code{forge.graphqlItemLimit} git variable or the field "GQL
-entity limit" in a status buffer.
-
-@item
-Forge depends on the @code{updated_at} field being updated when
-appropriate.  For Github pull-requests at least, that is not always
-done.
-@end itemize
-
-@anchor{Github Hosts}
-@subsubheading Github Hosts
-
-@itemize
-@item
-@uref{https://github.com}
-@end itemize
-
-@anchor{Gitlab}
-@subheading Gitlab
-
-@anchor{Gitlab Caveats}
-@subsubheading Gitlab Caveats
-
-@itemize
-@item
-Forge cannot provide notifications because the Gitlab API does not
-expose those.
-@end itemize
-
-@anchor{Gitlab Hosts}
-@subsubheading Gitlab Hosts
-
-@itemize
-@item
-@uref{https://gitlab.com}
-@item
-@uref{https://salsa.debian.org}
-@item
-@uref{https://framagit.org}
-@end itemize
-
-@node Partially Supported Forges
-@section Partially Supported Forges
-
-@anchor{Gitea https//giteaio}
-@subheading Gitea https://gitea.io
-
-This is the next forge whose API will be supported.
-
-@anchor{Gitea Hosts}
-@subsubheading Gitea Hosts
-
-@itemize
-@item
-@uref{https://codeberg.org}
-@end itemize
-
-@anchor{Gogs https//gogsio}
-@subheading Gogs https://gogs.io
-
-Once Gitea is supported it should be fairly simple to support Gogs
-too, because the former is a fork of the latter and the APIs seem to
-still be very similar.
-
-@anchor{Gogs Hosts}
-@subsubheading Gogs Hosts
-
-@itemize
-@item
-@uref{https://code.orgmode.org}
-@end itemize
-
-@anchor{Bitbucket https//bitbucketorg}
-@subheading Bitbucket https://bitbucket.org
-
-I don't plan to support Bitbucket's API any time soon, and it gets
-less likely that I will every do it every time I look at it.
-
-@anchor{Bitbucket Caveats}
-@subsubheading Bitbucket Caveats
-
-@itemize
-@item
-The API documentation is poor and initial tests indicated that the
-implementation is buggy.
-
-@item
-Atlassian's offering contains two very distinct implementations
-that are both called "Bitbucket".  Forge only supports the
-implementation whose only instance is available at
-@uref{https://bitbucket.org}, because I only have access to that.
-
-@item
-Unlike all other forges, Bitbucket does not expose pull-requests
-as references in the upstream repository.  For that reason Forge
-actually treats it as a semi-forge, not as forge whose API is not
-supported yet.  This means that you cannot checkout pull-requests
-locally.  There is little hope that this will ever get fixed; the
-respective issue was opened six years ago and there has been no
-progress since: @uref{https://bitbucket.org/site/master/issues/5814}.
-@end itemize
-
-@anchor{Bitbucket Hosts}
-@subsubheading Bitbucket Hosts
-
-@itemize
-@item
-@uref{https://bitbucket.org}
-@end itemize
-
-@node Supported Semi-Forges
-@section Supported Semi-Forges
-
-@anchor{Gitweb https//git-scmcom/docs/gitweb}
-@subheading Gitweb https://git-scm.com/docs/gitweb
-
-@anchor{Gitweb Caveats}
-@subsubheading Gitweb Caveats
-
-@itemize
-@item
-I could find only one public installation
-(@uref{https://git.savannah.gnu.org}), which gives users the choice
-between Gitweb and Cgit.  The latter seems more popular (not
-just on this site).
-@end itemize
-
-@anchor{Cgit https//gitzx2c4com/cgit/about}
-@subheading Cgit https://git.zx2c4.com/cgit/about
-
-@anchor{Cgit Caveats}
-@subsubheading Cgit Caveats
-
-@itemize
-@item
-Different sites use different URL schemata and some of the bigger
-sites use a fork.  For this reason Forge has to provide several
-classes to support different variations of Cgit and you have to
-look at their definitions to figure out which one is the correct
-one for a particular installation.
-@end itemize
-
-@anchor{Cgit Hosts}
-@subsubheading Cgit Hosts
-
-@itemize
-@item
-@uref{https://git.savannah.gnu.org/cgit}
-@item
-@uref{https://git.kernel.org}
-@item
-@uref{https://repo.or.cz}
-@end itemize
-
-@anchor{Stgit https//codemadnessorg/git/stagit/file/READMEhtml}
-@subheading Stgit https://codemadness.org/git/stagit/file/README.html
-
-@anchor{Stgit Caveats}
-@subsubheading Stgit Caveats
-
-@itemize
-@item
-Stgit cannot show logs for branches beside "master".  For that
-reason Forge takes users to a page listing the branches when they
-request the log for a particular branch (even for "master" whose
-log is just one click away from there).
-@end itemize
-
-@anchor{Stgit Hosts}
-@subsubheading Stgit Hosts
-
-@itemize
-@item
-@uref{https://git.suckless.org}
-@end itemize
-
-@anchor{Srht https//metasrht}
-@subheading Srht https://meta.sr.ht
-
-@anchor{Srht Caveats}
-@subsubheading Srht Caveats
-
-@itemize
-@item
-Srht cannot show logs for branches beside "master".  For that
-reason Forge takes users to a page listing the branches when they
-request the log for a particular branch (even for "master" whose
-log is just one click away from there).
-@end itemize
-
-@anchor{Srht Hosts}
-@subsubheading Srht Hosts
-
-@itemize
-@item
-@uref{https://git.sr.ht}
-@end itemize
-
-@node Getting Started
-@chapter Getting Started
-
-Initial setup turned out to more challenging for many users than I had
-hoped.  I am trying to counter that by providing detailed instructions
-that cover not just the happy path but also many of the issues users
-have ran into in the past.  The recommended reading is longer than one
-might wish, but skipping it does not necessarily save time.
+Initial setup turned out to be more challenging for many users than I
+had hoped.  I am trying to counter that by providing detailed
+instructions that cover not just the happy path but also many of the
+issues users have ran into in the past.  The recommended reading is
+longer than one might wish, but skipping it does not necessarily save
+time.
 
 Forge uses the Ghub package to access the APIs of supported forges.
 How this works and how to create and store a token is documented in
@@ -379,7 +128,7 @@ How this works and how to create and store a token is documented in
 back here and continuing with the subsections listed below.
 
 @uref{https://github.com/magit/forge/wiki} lists additional resources;
-including a link to a much shorter quick-start guide provided by
+including a link to a much shorter quick-start guide, provided by
 a user.
 
 @menu
@@ -387,7 +136,6 @@ a user.
 * Token Creation::
 * Initial Pull::
 * Repository Detection::
-* Caveats::
 @end menu
 
 @node Loading Forge
@@ -408,6 +156,11 @@ Or if you use @code{use-package}:
 (use-package forge
   :after magit)
 @end lisp
+
+By default Forge adds some bindings to Magit keymaps and menus, and
+sections to Magit buffers.  If you would like to prevent that, you
+have to set @code{forge-add-default-bindings} and @code{forge-add-default-sections}
+to @code{nil} before @code{magit} (not just @code{forge}) is loaded.
 
 @node Token Creation
 @section Token Creation
@@ -619,36 +372,16 @@ may be possible, but should seldom be necessary.
 @end itemize
 @end defopt
 
-@node Caveats
-@section Caveats
+@node Getting Started
+@chapter Getting Started
 
-@itemize
-@item
-Fetched information is stored in a database.  The table schemata of
-that database have not been finalized yet.  Until that has happened
-it will occasionally have to be discarded.  That isn't such a huge
-deal because for now the database does not contain any information
-that cannot simply be fetched again, see @ref{Initial Pull}.
+Much like Git stores information in a local repository and does not
+require a constant internet connection, Forge retrieves additional
+information using a forge's API and stores that in a local database.
 
-@item
-Fetching is implemented under the assumption that the API can be
-asked to list the things that have changed since we last checked.
-Unfortunately the APIs are not bug-free, so this is not always the
-case.  If in doubt, then re-fetch an individual topic to ensure it
-is up-to-date using the command @code{forge-pull-topic}.
-
-@item
-Some other, forge-specific, caveats are mentioned in @ref{Supported Forges and Hosts}.
-@end itemize
-
-@node Usage
-@chapter Usage
-
-Once information has been pulled from a repository's forge for the
-first time, Forge adds two additional sections, named "Pull requests"
-and "Issues" to Magit's status buffer.  It is also possible to add a
-repository to the local database without pulling all the data, which
-is useful if you want to create a single pull-request.
+Forges equivalent of @code{git clone} is @code{forge-add-repository}, which has to
+be run, before most of Forges features become available in the local
+clone of a Git repository.
 
 @table @asis
 @item @kbd{N a} (@code{forge-add-repository})
@@ -1380,6 +1113,255 @@ This is useful after the database's table schemata have changed,
 which will happen a few times while the Forge functionality is still
 under heavy development.
 @end deffn
+
+@node Supported Forges and Hosts
+@appendix Supported Forges and Hosts
+
+Currently Forge supports two forges and three more forges partially.
+Additionally it supports four semi-forges.  Support for more forges
+and semi-forges can and will be added.
+
+Both forges and semi-forges provide web interfaces for Git
+repositories.  Forges additionally support pull-requests and issues
+and make those and other information available using an API@.
+
+When a forge is only partially supported, then that means that only
+the functionality that does not require the API is implemented, or
+in other words, that the forge is only supported as a semi-forge.
+
+A host is a particular instance of a forge.  For example the hosts
+@uref{https://gitlab.com} and @uref{https://salsa.debian.org} are both instances of
+the Gitlab forge.  Forge supports some well known hosts out of the box
+and additional hosts can easily be supported by adding entries to the
+option @code{forge-alist} (see @ref{Repository Detection}).
+
+For more details about the caveats mentioned below (and some others)
+also see @ref{Getting Started}.
+
+@menu
+* Supported Forges::
+* Partially Supported Forges::
+* Supported Semi-Forges::
+@end menu
+
+@node Supported Forges
+@appendixsec Supported Forges
+
+@anchor{Github}
+@appendixsubsec Github
+
+Forge's support for Github can be considered the "reference
+  implementation".  Support for other forges can lag behind a bit.
+
+@anchor{Github Caveats}
+@appendixsubsubsec Github Caveats
+
+@itemize
+@item
+Forge uses the Github GraphQL API when possible but has to fall
+back to use the REST API in many cases because the former is still
+rather incomplete.
+
+@item
+The Github GraphQL API has a hard-coded timeout on queries. The only solution
+is to reduce the number of entities we query at once, which can be done by
+adjusting either the @code{forge.graphqlItemLimit} git variable or the field "GQL
+entity limit" in a status buffer.
+
+@item
+Forge depends on the @code{updated_at} field being updated when
+appropriate.  For Github pull-requests at least, that is not always
+done.
+@end itemize
+
+@anchor{Github Hosts}
+@appendixsubsubsec Github Hosts
+
+@itemize
+@item
+@uref{https://github.com}
+@end itemize
+
+@anchor{Gitlab}
+@appendixsubsec Gitlab
+
+@anchor{Gitlab Caveats}
+@appendixsubsubsec Gitlab Caveats
+
+@itemize
+@item
+Forge cannot provide notifications because the Gitlab API does not
+expose those.
+@end itemize
+
+@anchor{Gitlab Hosts}
+@appendixsubsubsec Gitlab Hosts
+
+@itemize
+@item
+@uref{https://gitlab.com}
+@item
+@uref{https://salsa.debian.org}
+@item
+@uref{https://framagit.org}
+@end itemize
+
+@node Partially Supported Forges
+@appendixsec Partially Supported Forges
+
+@anchor{Gitea https//giteaio}
+@appendixsubsec Gitea https://gitea.io
+
+This is the next forge whose API will be supported.
+
+@anchor{Gitea Hosts}
+@appendixsubsubsec Gitea Hosts
+
+@itemize
+@item
+@uref{https://codeberg.org}
+@end itemize
+
+@anchor{Gogs https//gogsio}
+@appendixsubsec Gogs https://gogs.io
+
+Once Gitea is supported it should be fairly simple to support Gogs
+too, because the former is a fork of the latter and the APIs seem to
+still be very similar.
+
+@anchor{Gogs Hosts}
+@appendixsubsubsec Gogs Hosts
+
+@itemize
+@item
+@uref{https://code.orgmode.org}
+@end itemize
+
+@anchor{Bitbucket https//bitbucketorg}
+@appendixsubsec Bitbucket https://bitbucket.org
+
+I don't plan to support Bitbucket's API any time soon, and it gets
+less likely that I will every do it every time I look at it.
+
+@anchor{Bitbucket Caveats}
+@appendixsubsubsec Bitbucket Caveats
+
+@itemize
+@item
+The API documentation is poor and initial tests indicated that the
+implementation is buggy.
+
+@item
+Atlassian's offering contains two very distinct implementations
+that are both called "Bitbucket".  Forge only supports the
+implementation whose only instance is available at
+@uref{https://bitbucket.org}, because I only have access to that.
+
+@item
+Unlike all other forges, Bitbucket does not expose pull-requests
+as references in the upstream repository.  For that reason Forge
+actually treats it as a semi-forge, not as forge whose API is not
+supported yet.  This means that you cannot checkout pull-requests
+locally.  There is little hope that this will ever get fixed; the
+respective issue was opened six years ago and there has been no
+progress since: @uref{https://bitbucket.org/site/master/issues/5814}.
+@end itemize
+
+@anchor{Bitbucket Hosts}
+@appendixsubsubsec Bitbucket Hosts
+
+@itemize
+@item
+@uref{https://bitbucket.org}
+@end itemize
+
+@node Supported Semi-Forges
+@appendixsec Supported Semi-Forges
+
+@anchor{Gitweb https//git-scmcom/docs/gitweb}
+@appendixsubsec Gitweb https://git-scm.com/docs/gitweb
+
+@anchor{Gitweb Caveats}
+@appendixsubsubsec Gitweb Caveats
+
+@itemize
+@item
+I could find only one public installation
+(@uref{https://git.savannah.gnu.org}), which gives users the choice
+between Gitweb and Cgit.  The latter seems more popular (not
+just on this site).
+@end itemize
+
+@anchor{Cgit https//gitzx2c4com/cgit/about}
+@appendixsubsec Cgit https://git.zx2c4.com/cgit/about
+
+@anchor{Cgit Caveats}
+@appendixsubsubsec Cgit Caveats
+
+@itemize
+@item
+Different sites use different URL schemata and some of the bigger
+sites use a fork.  For this reason Forge has to provide several
+classes to support different variations of Cgit and you have to
+look at their definitions to figure out which one is the correct
+one for a particular installation.
+@end itemize
+
+@anchor{Cgit Hosts}
+@appendixsubsubsec Cgit Hosts
+
+@itemize
+@item
+@uref{https://git.savannah.gnu.org/cgit}
+@item
+@uref{https://git.kernel.org}
+@item
+@uref{https://repo.or.cz}
+@end itemize
+
+@anchor{Stgit https//codemadnessorg/git/stagit/file/READMEhtml}
+@appendixsubsec Stgit https://codemadness.org/git/stagit/file/README.html
+
+@anchor{Stgit Caveats}
+@appendixsubsubsec Stgit Caveats
+
+@itemize
+@item
+Stgit cannot show logs for branches beside "master".  For that
+reason Forge takes users to a page listing the branches when they
+request the log for a particular branch (even for "master" whose
+log is just one click away from there).
+@end itemize
+
+@anchor{Stgit Hosts}
+@appendixsubsubsec Stgit Hosts
+
+@itemize
+@item
+@uref{https://git.suckless.org}
+@end itemize
+
+@anchor{Srht https//metasrht}
+@appendixsubsec Srht https://meta.sr.ht
+
+@anchor{Srht Caveats}
+@appendixsubsubsec Srht Caveats
+
+@itemize
+@item
+Srht cannot show logs for branches beside "master".  For that
+reason Forge takes users to a page listing the branches when they
+request the log for a particular branch (even for "master" whose
+log is just one click away from there).
+@end itemize
+
+@anchor{Srht Hosts}
+@appendixsubsubsec Srht Hosts
+
+@itemize
+@item
+@uref{https://git.sr.ht}
+@end itemize
 
 @node FAQ
 @appendix FAQ
