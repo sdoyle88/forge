@@ -75,11 +75,11 @@ Takes the pull-request as only argument and must return a directory."
                     ((or (magit-gitdir) (forge-repository-at-point))
                      "Forge does not yet track this repository")
                     ("Not inside a Git repository")))
-    ("/ a" forge-add-repository
+    ("/a" forge-add-repository
      :description (lambda () (if (forge--get-repository:tracked?)
                             "track some repo"
                           "track this repository")))
-    ("/ M" "merge with api" forge-merge
+    ("/M" "merge with api" forge-merge
      :if forge--get-repository:tracked? :level 7)]]
   [forge--lists-group
    ["Visit"
@@ -133,7 +133,10 @@ Takes the pull-request as only argument and must return a directory."
   "Pull forge topics for the current repository if it is already tracked.
 If the current repository is still untracked locally, or the current
 repository cannot be determined, instead invoke `forge-add-repository'."
-  :inapt-if-not #'forge--get-repository:tracked?
+  :description (lambda ()
+                 (if (forge-get-repository :tracked?)
+                     "forge topics"
+                   "new forge repository"))
   (declare (interactive-only nil))
   (interactive)
   (if-let ((repo (forge-get-repository :tracked?)))
@@ -174,9 +177,10 @@ repository cannot be determined, instead invoke `forge-add-repository'."
             (magit-inhibit-refresh t))
         (magit-git-fetch (oref repo remote) (magit-fetch-arguments))))))
 
-;;;###autoload
-(defun forge-pull-notifications ()
+;;;###autoload (autoload 'forge-pull-notifications "forge-commands" nil t)
+(transient-define-suffix forge-pull-notifications ()
   "Fetch notifications for all repositories from the current forge."
+  :description "forge notifications"
   (interactive)
   (if-let ((repo (forge-get-repository :stub?)))
       (let ((class (eieio-object-class repo)))
@@ -765,6 +769,16 @@ Please see the manual for more information."
   (interactive (list (forge-read-pullreq "Checkout pull request")))
   (magit--checkout (forge--branch-pullreq (forge-get-pullreq pullreq)))
   (forge-refresh-buffer))
+
+;;;###autoload (autoload 'forge-checkout-this-pullreq "forge-commands" nil t)
+(transient-define-suffix forge-checkout-this-pullreq ()
+  "Checkout the current pull-request.
+If the branch for that pull-request does not exist yet, then create and
+configure it first."
+  :description "checkout"
+  :inapt-if-not #'forge-current-pullreq
+  (interactive)
+  (forge-checkout-pullreq (forge-current-topic t)))
 
 ;;;###autoload
 (defun forge-checkout-worktree (path pullreq)
