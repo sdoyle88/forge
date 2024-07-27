@@ -57,6 +57,10 @@ This manual is for Forge version 0.3.2.50-git.
 * Introduction::
 * Initial Setup::
 * Getting Started::
+* Pulling::
+* Branching::
+* Working with Topics::
+* Miscellaneous::
 * Supported Forges and Hosts::
 * FAQ::
 * Keystroke Index::
@@ -73,20 +77,12 @@ Initial Setup
 * Initial Pull::
 * Repository Detection::
 
-Getting Started
-
-* Pulling::
-* Branching::
-* Working with Topics::
-* Miscellaneous::
-
 Working with Topics
 
 * Visiting Topics::
 * Listing Topics and Notifications::
 * Creating Topics::
 * Editing Topics and Posts::
-
 
 Supported Forges and Hosts
 
@@ -117,8 +113,8 @@ Additionally it fetches pull-request references using Git.
 
 Initial setup turned out to be more challenging for many users than I
 had hoped.  I am trying to counter that by providing detailed
-instructions that cover not just the happy path but also many of the
-issues users have ran into in the past.  The recommended reading is
+instructions, which cover not just the happy path but also many of the
+issues, users have ran into in the past.  The recommended reading is
 longer than one might wish, but skipping it does not necessarily save
 time.
 
@@ -127,7 +123,7 @@ How this works and how to create and store a token is documented in
 @ref{Getting Started,,,ghub,}.  Please read that in full before coming
 back here and continuing with the subsections listed below.
 
-@uref{https://github.com/magit/forge/wiki} lists additional resources;
+@uref{https://github.com/magit/forge/wiki} lists additional resources,
 including a link to a much shorter quick-start guide, provided by
 a user.
 
@@ -168,10 +164,6 @@ to @code{nil} before @code{magit} (not just @code{forge}) is loaded.
 Forge uses the Ghub package to access the APIs of supported Git
 forges.  How this works and how to create and store a token is
 documented in @ref{Getting Started,,,ghub,}.
-
-Ghub used to provide a setup wizard, but that had to be removed for
-reasons given in the manual just mentioned.  Nowadays there is no way
-around reading the documentation and doing this manually I am afraid.
 
 Forge requires the following token scopes.
 
@@ -219,13 +211,13 @@ Git variable @code{remote.<remote>.fetch}, which fetches all pull-requests.
 @code{forge-pull} then fetches topics and other information using the forge's
 API and pull-request references using Git.
 
-The initial fetch can take a while but most of that is done
+The initial fetch can take a while but most of the work is done
 asynchronously.  Storing the information in the database is done
 synchronously though, so there can be a noticeable hang at the end.
 Subsequent fetches are much faster.
 
 Fetching issues from Github is much faster than fetching from other
-forges because making a handful of GraphQL requests is much faster
+forges, because making a handful of GraphQL requests, is much faster
 than making hundreds of REST requests.
 
 @node Repository Detection
@@ -234,11 +226,11 @@ than making hundreds of REST requests.
 Ghub does @strong{not} associate a given local repository with a repository on
 a forge.  The Forge package itself takes care of this.  In doing so it
 ignores the Git variable @code{ghub.host} and other @code{*.host} variables used by
-Ghub.  (But @code{github.user} and other variables used to specify the user
+Ghub.  (But @code{github.user}, and other variables used to specify the user,
 are honored).
 
-Forge associates the local repository with a forge repository by first
-determining which remote is associated with the upstream repository
+Forge associates the local repository with a forge repository, by first
+determining which remote is associated with the upstream repository,
 and then looking that up in @code{forge-alist}.
 
 If only one remote exists, then Forge uses that unconditionally.  To
@@ -258,8 +250,8 @@ Note, however, that even though a surprising number of people do just
 that, it does not make any sense to use the name "origin" to refer to
 a fork; not even to your own fork.  A fork is a @strong{copy} of the original,
 "copy" is an antonym for "original", and the word "origin" is not only
-closely related to but even contained in the word "original".  Naming
-a fork the "origin" is at best extremely confusing.
+closely related to but is even contained in the word "original".
+Naming a fork the "origin" is at best extremely confusing.
 
 @table @asis
 @item copy
@@ -324,12 +316,12 @@ the current repository.
 @end table
 
 If this variable is set, then Forge uses the remote by that name, if
-it exists, the same way it may have used @code{origin} if the the variable
-were undefined.  I.e., it does not fall through to try @code{origin} if no
-remote by your chosen name exists.
+it exists, the same way it may have used @code{origin} if the variable were
+undefined.  I.e., it does not fall through to try @code{origin} if no remote
+by your chosen name exists.
 
 Once the upstream remote has been determined, Forge looks it up in
-@code{forge-alist}, using the host part of the URL as the key.  For example
+@code{forge-alist}, using the host part of the URL as the key.  For example,
 the key for @code{git@@github.com:magit/forge.git} is @code{github.com}.
 
 @defopt forge-alist
@@ -379,52 +371,79 @@ Much like Git stores information in a local repository and does not
 require a constant internet connection, Forge retrieves additional
 information using a forge's API and stores that in a local database.
 
-Forges equivalent of @code{git clone} is @code{forge-add-repository}, which has to
+Forge's equivalent of @code{git clone} is @code{forge-add-repository}, which has to
 be run, before most of Forges features become available in the local
 clone of a Git repository.
 
 @table @asis
-@item @kbd{N a} (@code{forge-add-repository})
-@kindex N a
+@item @kbd{N / a} (@code{forge-add-repository})
+@kindex N / a
 @findex forge-add-repository
-This command adds a repository to the database.
+This command guides the user through the process of adding a
+repository to the local database.
 
-It offers to either pull topics (now and in the future) or to only
-pull individual topics when the user invokes @code{forge-pull-topic}.
+Note that it is possible to add a repository to the local database,
+without pulling all the data, which is useful if you just want to
+create a single issue or pull-request in a repository, but are not
+interested in existing topics, e.g., because you do not regularly
+contribute to that repository.
+
+Also note that you can add a repository to the local database, even
+if no local Git clone exists.
 @end table
 
-Some of Forge's commands are only bound when point is within one of
-these sections but other commands are also available elsewhere in
-Magit's status buffer and/or from Magit's transient commands.
+Like with Git, you have to explicitly pull remote changes, at your
+leisure, using @code{forge-pull}.
+
+@table @asis
+@item @kbd{f n} (@code{forge-pull})
+@itemx @kbd{N f f}
+@kindex f n
+@kindex N f f
+@findex forge-pull
+This command uses a forge's API to fetch topics and other
+information about the current repository, and stores the fetched
+information in the database.
+
+If the current repository isn't being tracked in the local database
+yet, then this command pivots to behave like @code{forge-add-repository}.
+@end table
+
+Forge adds two additional sections to Magit's status buffer, which
+list open and/or pending issues and pull-requests.  Typing @code{RET}, while
+the cursor is on a topic section, shows more information about that
+topic in a separate buffer.  Typing @code{RET} on a topic list section, shows
+that list in a separate buffer, where you can apply different filters.
+
+The other main entry point to the functionality provided by Forge is
+the @code{forge-dispatch} menu.
 
 @table @asis
 @item @kbd{N} (@code{forge-dispatch})
 @kindex N
 @findex forge-dispatch
-This prefix command is available in any Magit buffer and provides
-access to several of the available Forge commands.  Most of these
-commands are also bound elsewhere, but some are not.  See the
-following sections for information about the available commands.
-
-Throughout this manual you will find many bindings that begin with
-@code{N}, but if you prefer to continue to use @code{forge-dispatch}'s older
-binding you can substitute @code{'} for that.
+This prefix command is available in all Magit buffers and provides
+access to most of the available Forge commands.  See the following
+sections for information about the available commands.
 @end table
 
-@menu
-* Pulling::
-* Branching::
-* Working with Topics::
-* Miscellaneous::
-@end menu
-
 @node Pulling
-@section Pulling
+@chapter Pulling
 
-The commands that fetch forge data are available from the same
-transient prefix command (@code{magit-fetch} on @code{f}) that is used to fetch Git
-data.  If option @code{magit-pull-or-fetch} is non-nil, then they are also
-available from the @code{magit-pull} transient (on @code{F}).
+The commands that fetch forge data are available the Forge's main menu
+(@code{forge-dispatch} on @code{N}) and from the same menu (@code{magit-fetch} on @code{f}) that
+is used to fetch Git data.  If @code{magit-pull-or-fetch} is non-nil, then
+they are also available from the @code{magit-pull} menu (on @code{F}).
+
+With Git you have to explicitly pull Git data to make it available in
+the local repository.  Forge works the same; you have to explicitly
+pull to pull data using the forge's API and storing in the local
+database.  This is less disruptive, more reliable, familiar and easier
+to understand than if Forge pulled by itself at random intervals.  It
+might however mean that you occasionally invoke a command expecting
+the most recent data to be available and then have to abort and pull
+first.  The same can happen with Git, e.g., you might attempt to merge
+a branch that you know exists but haven't actually pulled yet.
 
 @table @asis
 @item @kbd{f n} (@code{forge-pull})
@@ -434,13 +453,12 @@ available from the @code{magit-pull} transient (on @code{F}).
 @findex forge-pull
 This command uses a forge's API to fetch topics and other
 information about the current repository and stores the fetched
-information in the database.  It also fetches notifications for all
-repositories from the same forge host.  (Currently this is limited
-to Github.)  Finally it fetches pull-request references using Git.
+information in the database.
 
-After using this command for the first time in a given repository
-the status buffer for that repository always lists the pull-requests
-and issues.  See @ref{Initial Pull}.
+If the current repository is still untracked locally, or the current
+repository cannot be determined, this command instead behaves like
+@code{forge-add-repository}, i.e., it adds the repository to the database
+and then performs the initial pull.
 
 @item @kbd{f N} (@code{forge-pull-notifications})
 @itemx @kbd{N f n}
@@ -448,50 +466,26 @@ and issues.  See @ref{Initial Pull}.
 @kindex N f n
 @findex forge-pull-notifications
 This command uses a forge's API to fetch all notifications from that
-forge including, but not limited to, the notifications for the current
-repository.
+forge, including, but not limited to, the notifications for the
+current repository.
 
-Fetching all notifications fetches associated topics even if you
-have not started fetching @strong{all} topics for the respective repositories
-(using @code{forge-pull}), but it does not cause the topics to be listed in
-the status buffer of such "uninitialized" repositories.
-@end table
+Fetching notifications fetches associated topics even for repositories
+that you have not yet explicitly added to the local database.
 
-Note how pulling data from a forge's API works the same way as pulling
-Git data does; you do it explicitly when you want to see the work done
-by others.
-
-This is less disruptive, more reliable, and easier to understand than
-if Forge did the pulling by itself at random intervals.  It might
-however mean that you occasionally invoke a command expecting the most
-recent data to be available and then have to abort to pull first.
-The same can happen with Git, e.g., you might attempt to merge a branch
-that you know exists but haven't actually pulled yet.
-
-@table @asis
 @item @kbd{N f t} (@code{forge-pull-topic})
 @kindex N f t
 @findex forge-pull-topic
 This command uses a forge's API to fetch a single pull-request and
-stores it in the database.
-
-Normally you wouldn't want to pull a single pull-request by itself,
-but due to a bug in the Github API you might sometimes have to do
-so.
-
-Fetching is implemented under the assumption that the API can be
-asked to list the things that have changed since we last checked.
-Unfortunately the APIs are not bug-free, so this is not always the
-case.  If in doubt, then re-fetch an individual topic to ensure it
-is up-to-date using the command @code{forge-pull-topic}.
+stores it in the database.  This is useful if you chose to not fetch
+all topics when you added the repository using @code{forge-add-repository}.
 @end table
 
 @node Branching
-@section Branching
+@chapter Branching
 
 Forge provides commands for creating and checking out a new branch or
 work tree from a pull-request.  These commands are available from the
-same transient prefix commands as the suffix commands used to create
+same transient prefix commands as the suffix commands, used to create
 and check out branches and work trees in a more generic fashion
 (@code{magit-branch} on @code{b} and @code{magit-worktree} on @code{%}).
 
@@ -609,11 +603,11 @@ the new branch.
 @findex forge-checkout-worktree
 This command creates and configures a new branch from a pull-request
 the same way @code{forge-branch-pullreq} does.  Additionally it checks out
-the new branch using a new working tree.
+the new branch, using a new working tree.
 @end table
 
 @defopt forge-checkout-worktree-read-directory-function
-This function is used by @code{forge-checkout-worktree} to read the new
+This function is used by @code{forge-checkout-worktree}, to read the new
 worktree directory where it checks out the pull-request.  It takes
 the pull-request as the only argument and must return a directory.
 @end defopt
@@ -629,7 +623,7 @@ this to work.  If you delete the tracking branch (e.g., "fork/feature"),
 then the remote is never removed.
 
 @node Working with Topics
-@section Working with Topics
+@chapter Working with Topics
 
 We call both issues and pull-requests "topics".  The contributions to
 the conversation are called "posts".
@@ -642,7 +636,7 @@ the conversation are called "posts".
 @end menu
 
 @node Visiting Topics
-@subsection Visiting Topics
+@section Visiting Topics
 
 Magit's status buffer contains lists of issues and pull-requests.
 Topics are ordered by last modification time.  All open issues and
@@ -714,7 +708,7 @@ defined in @code{magit-mode-map}).
 @end table
 
 @node Listing Topics and Notifications
-@subsection Listing Topics and Notifications
+@section Listing Topics and Notifications
 
 By default Forge lists a subset of topics directly in the Magit status
 buffer.  It also provides commands to list topics and notifications in
@@ -729,50 +723,6 @@ pull-requests.
 
 @defun forge-insert-issues
 This function inserts a list of the most recent and/or open issues.
-@end defun
-
-@defopt forge-topic-list-limit
-This option limits the number of topics listed by the above
-functions.
-
-All unread topics are always shown.  If the value of this option has
-the form @code{(OPEN . CLOSED)}, then the integer @code{OPEN} specifies the
-maximal number of topics and @code{CLOSED} specifies the maximal number of
-closed topics.  IF @code{CLOSED} is negative then show no closed topics
-until the command @code{forge-toggle-closed-visibility} changes the sign.
-@end defopt
-
-@deffn Command forge-toggle-closed-visibility
-This command toggles whether the above two functions list recently
-closed issues in the current buffer.
-@end deffn
-
-The following functions are also suitable for
-@code{magit-status-sections-hook}:
-
-@defun forge-insert-assigned-pullreqs
-This function inserts a list of open pull-requests that are assigned
-to you.
-@end defun
-
-@defun forge-insert-requested-reviews
-This function inserts a list of open pull-requests that are awaiting
-your review.
-@end defun
-
-@defun forge-insert-authored-pullreqs
-This function inserts a list of open pull-requests that are authored
-by you.
-@end defun
-
-@defun forge-insert-assigned-issues
-This function inserts a list of open issues that are assigned to
-you.
-@end defun
-
-@defun forge-insert-authored-issues
-This function inserts a list of open issues that are authored by
-you.
 @end defun
 
 The following commands list repositories, notifications and topics in
@@ -803,55 +753,6 @@ This command lists the current repository's issues in a separate
 buffer.
 @end table
 
-@deffn Command forge-list-labeled-pullreqs
-This command lists the current repository's open pull-requests that
-are labeled with a label read from the user.
-@end deffn
-
-@deffn Command forge-list-labeled-issues
-This command lists the current repository's open issues that are
-labeled with a label read from the user.
-@end deffn
-
-@deffn Command forge-list-assigned-pullreqs
-This command lists the current repository's open pull-requests that
-are assigned to you in a separate buffer.
-@end deffn
-
-@deffn Command forge-list-assigned-issues
-This command lists the current repository's open issues that are
-assigned to you in a separate buffer.
-@end deffn
-
-@deffn Command forge-list-requested-reviews
-This command lists pull-requests of the current repository that are
-awaiting your review in a separate buffer.
-@end deffn
-
-@deffn Command forge-list-authored-pullreqs
-This command lists the current repository's open pull-requests that
-are authored by you in a separate buffer.
-@end deffn
-
-@deffn Command forge-list-authored-issues
-This command lists the current repository's open issues that are
-authored by you in a separate buffer.
-@end deffn
-
-@deffn Command forge-list-owned-pullreqs
-This command lists open pull-requests from all the repositories that
-you own.  Options @code{forge-owned-accounts} and @code{forge-owned-ignored}
-controls which repositories are considered to be owned by you.  Only
-Github is supported for now.
-@end deffn
-
-@deffn Command forge-list-owned-issues
-This command lists open issues from all the repositories that
-you own.  Options @code{forge-owned-accounts} and @code{forge-owned-ignored}
-controls which repositories are considered to be owned by you.  Only
-Github is supported for now.
-@end deffn
-
 @defopt forge-owned-accounts
 This is an alist of accounts that are owned by you.  This should
 include your username as well as any organization that you own.
@@ -878,7 +779,7 @@ by you based on @code{forge-owned-accounts}.
 @end defopt
 
 @node Creating Topics
-@subsection Creating Topics
+@section Creating Topics
 
 @table @asis
 @item @kbd{N c p} (@code{forge-create-pullreq})
@@ -897,7 +798,7 @@ This command creates a new issue for the current repository.
 @end table
 
 @node Editing Topics and Posts
-@subsection Editing Topics and Posts
+@section Editing Topics and Posts
 
 We call both issues and pull-requests "topics".  The contributions to
 the conversation are called "posts".  The post that initiated the
@@ -1038,7 +939,7 @@ draft.
 @end table
 
 @node Miscellaneous
-@section Miscellaneous
+@chapter Miscellaneous
 
 @table @asis
 @item @kbd{N c f} (@code{forge-fork})
@@ -1050,17 +951,6 @@ has to be created first by forking it to an account the user has
 access to.
 
 Currently this only supports Github and Gitlab.
-
-@item @kbd{N a} (@code{forge-add-repository})
-@kindex N a
-@findex forge-add-repository
-This command reads a repository from the user and adds it to the
-database.  The repository can be provided as a URL, a name, or in
-the form OWNER/NAME@.  This is subject to @code{magit-clone-name-alist}.
-
-This command offers to either pull topics (now and in the future) or
-to only pull individual topics when the user invokes
-@code{forge-pull-topic}.
 
 @item @kbd{N t t} (@code{forge-toggle-display-in-status-buffer})
 @kindex N t t
@@ -1136,7 +1026,7 @@ and additional hosts can easily be supported by adding entries to the
 option @code{forge-alist} (see @ref{Repository Detection}).
 
 For more details about the caveats mentioned below (and some others)
-also see @ref{Getting Started}.
+see also @ref{Getting Started}.
 
 @menu
 * Supported Forges::
@@ -1151,7 +1041,7 @@ also see @ref{Getting Started}.
 @appendixsubsec Github
 
 Forge's support for Github can be considered the "reference
-  implementation".  Support for other forges can lag behind a bit.
+implementation".  Support for other forges can lag behind a bit.
 
 @anchor{Github Caveats}
 @appendixsubsubsec Github Caveats
@@ -1366,7 +1256,7 @@ log is just one click away from there).
 @node FAQ
 @appendix FAQ
 
-This section lists some frequently asked questions.  Please also see
+This section lists some frequently asked questions.  Please see also
 @uref{https://github.com/magit/forge/wiki/FAQ} for an extended list of common
 issues.
 
