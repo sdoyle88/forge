@@ -198,7 +198,7 @@ an error."
   "Read an active pull-request with completion using PROMPT.
 
 Open, unread and pending pull-requests are considered active.
-Default to the current pull-request even if it isn't active.
+Default to the current pull-request, even if it isn't active.
 
 \\<forge-read-topic-minibuffer-map>While completion is in \
 progress, \\[forge-read-topic-lift-limit] lifts the limit, extending
@@ -209,7 +209,7 @@ can be selected from the start."
   (forge--read-topic prompt
                      #'forge-current-pullreq
                      (forge--topics-spec :type 'pullreq :active t)
-                     (forge--topics-spec :type 'pullreq :active nil)))
+                     (forge--topics-spec :type 'pullreq :active nil :state nil)))
 
 ;;; Utilities
 

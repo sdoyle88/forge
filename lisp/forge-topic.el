@@ -560,7 +560,7 @@ Limit list to topics for which a review by the given user was requested."
   "Read an active topic with completion using PROMPT.
 
 Open, unread and pending topics are considered active.
-Default to the current topic even if it isn't active.
+Default to the current topic, even if it isn't active.
 
 \\<forge-read-topic-minibuffer-map>While completion is in \
 progress, \\[forge-read-topic-lift-limit] lifts the limit, extending
@@ -571,7 +571,7 @@ can be selected from the start."
   (forge--read-topic prompt
                      #'forge-current-topic
                      (forge--topics-spec :type 'topic :active t)
-                     (forge--topics-spec :type 'topic :active nil)))
+                     (forge--topics-spec :type 'topic :active nil :state nil)))
 
 (defun forge--read-topic (prompt current active all)
   (let* ((current (funcall current))
@@ -1080,14 +1080,16 @@ commands in all Forge keymaps, one only has to change them here."
   "C-c C-r"                      #'forge-create-post)
 
 (define-derived-mode forge-topic-mode magit-mode "Topic"
-  "Parent mode of `forge-{issue,pullreq}-mode'.
+  "Parent major mode of `forge-{issue,pullreq}-mode'.
 This mode itself is never used directly."
+  :interactive nil
   (face-remap-add-relative 'header-line 'forge-topic-header-line)
   (setq-local markdown-translate-filename-function
               #'forge--markdown-translate-filename-function))
 
 (define-derived-mode forge-issue-mode forge-topic-mode "Issue"
-  "Mode for looking at a Forge issue.")
+  "Major mode for looking at a Forge issue."
+  :interactive nil)
 (defalias 'forge-issue-setup-buffer   #'forge-topic-setup-buffer)
 (defalias 'forge-issue-refresh-buffer #'forge-topic-refresh-buffer)
 (defvar forge-issue-headers-hook
@@ -1099,7 +1101,8 @@ This mode itself is never used directly."
     forge-insert-topic-assignees))
 
 (define-derived-mode forge-pullreq-mode forge-topic-mode "Pull-request"
-  "Mode for looking at a Forge pull-request.")
+  "Major mode for looking at a Forge pull-request."
+  :interactive nil)
 (defalias 'forge-pullreq-setup-buffer   #'forge-topic-setup-buffer)
 (defalias 'forge-pullreq-refresh-buffer #'forge-topic-refresh-buffer)
 (defvar forge-pullreq-headers-hook
